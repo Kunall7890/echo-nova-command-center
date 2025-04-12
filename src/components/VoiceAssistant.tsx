@@ -1,5 +1,6 @@
+
 import React, { useState, useRef, useEffect } from "react";
-import { Mic, MicOff, Send, Volume2, Clock, FileText, Settings, Youtube, CloudSun, AppWindow } from "lucide-react";
+import { Mic, MicOff, Send, Volume2, Clock, FileText, Settings, Youtube, CloudSun, AppWindow, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Card } from "@/components/ui/card";
@@ -9,7 +10,7 @@ import VoiceVisualizer from "./VoiceVisualizer";
 import CommandDisplay from "./CommandDisplay";
 import PersonalitySelector from "./PersonalitySelector";
 import { processCommand, getReminders, getNotes, getPersonality } from "@/utils/commandProcessor";
-import { CommandType, PersonalityType } from "@/types/commands";
+import { CommandType, PersonalityType, VoiceSettings } from "@/types/commands";
 
 type Message = {
   id: string;
@@ -35,10 +36,41 @@ const VoiceAssistant = () => {
   const [volume, setVolume] = useState(0);
   const [activeCommand, setActiveCommand] = useState<{ type: string; data: any } | null>(null);
   const [currentPersonality, setCurrentPersonality] = useState<PersonalityType>(getPersonality());
+  const [voiceSettings, setVoiceSettings] = useState<VoiceSettings>({
+    enabled: true,
+    volume: 1,
+    rate: 1,
+    pitch: 1,
+    voice: null
+  });
   const recognition = useRef<SpeechRecognition | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLInputElement>(null);
+  const speechSynthesis = useRef<SpeechSynthesis | null>(typeof window !== 'undefined' ? window.speechSynthesis : null);
   const { toast } = useToast();
+
+  // Initialize available voices
+  useEffect(() => {
+    if (speechSynthesis.current) {
+      const updateVoices = () => {
+        const voices = speechSynthesis.current?.getVoices() || [];
+        if (voices.length > 0 && !voiceSettings.voice) {
+          // Try to find an English voice
+          const englishVoice = voices.find(voice => 
+            voice.lang.includes('en') || voice.lang.includes('US')
+          );
+          setVoiceSettings(prev => ({
+            ...prev,
+            voice: englishVoice || voices[0]
+          }));
+        }
+      };
+
+      // Chrome requires this event listener
+      speechSynthesis.current.onvoiceschanged = updateVoices;
+      updateVoices();
+    }
+  }, []);
 
   useEffect(() => {
     if (window.SpeechRecognition || window.webkitSpeechRecognition) {
@@ -91,12 +123,54 @@ const VoiceAssistant = () => {
       if (recognition.current) {
         recognition.current.stop();
       }
+      
+      // Clean up any ongoing speech
+      if (speechSynthesis.current) {
+        speechSynthesis.current.cancel();
+      }
     };
   }, [toast]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  const speakText = (text: string) => {
+    if (!voiceSettings.enabled || !speechSynthesis.current) return;
+    
+    // Cancel any ongoing speech
+    speechSynthesis.current.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    // Apply voice settings
+    if (voiceSettings.voice) {
+      utterance.voice = voiceSettings.voice;
+    }
+    
+    utterance.volume = voiceSettings.volume;
+    utterance.rate = voiceSettings.rate;
+    utterance.pitch = voiceSettings.pitch;
+    
+    speechSynthesis.current.speak(utterance);
+  };
+
+  const toggleVoice = () => {
+    setVoiceSettings(prev => ({
+      ...prev,
+      enabled: !prev.enabled
+    }));
+    
+    toast({
+      title: voiceSettings.enabled ? "Voice Output Disabled" : "Voice Output Enabled",
+      description: voiceSettings.enabled ? "Assistant will no longer speak responses." : "Assistant will now speak responses.",
+    });
+    
+    // If disabling, stop any ongoing speech
+    if (voiceSettings.enabled && speechSynthesis.current) {
+      speechSynthesis.current.cancel();
+    }
+  };
 
   const toggleListening = () => {
     if (listening && recognition.current) {
@@ -169,6 +243,11 @@ const VoiceAssistant = () => {
       };
       
       setMessages((prev) => [...prev, assistantMessage]);
+      
+      // Speak the response if voice is enabled
+      if (voiceSettings.enabled) {
+        speakText(response.response);
+      }
       
       if (['reminder', 'note', 'systemCommand'].includes(response.type)) {
         toast({
@@ -422,11 +501,13 @@ const VoiceAssistant = () => {
         </form>
         
         <Button
+          onClick={toggleVoice}
           variant="outline"
           size="icon"
-          className="rounded-full border-gray-300 dark:border-gray-700"
+          className={`rounded-full border-gray-300 dark:border-gray-700 ${!voiceSettings.enabled ? 'bg-gray-100' : ''}`}
+          title={voiceSettings.enabled ? "Disable voice responses" : "Enable voice responses"}
         >
-          <Volume2 />
+          {voiceSettings.enabled ? <Volume2 /> : <VolumeX />}
         </Button>
       </div>
     </div>

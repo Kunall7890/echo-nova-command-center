@@ -51,3 +51,11 @@ export interface ChatMemory {
   preferences: Record<string, any>;
   personality: PersonalityType;
 }
+
+export interface VoiceSettings {
+  enabled: boolean;
+  volume: number;
+  rate: number;
+  pitch: number;
+  voice?: SpeechSynthesisVoice | null;
+}
