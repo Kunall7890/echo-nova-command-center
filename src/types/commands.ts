@@ -9,6 +9,7 @@ export type CommandType =
   | 'note'
   | 'search'
   | 'systemCommand'
+  | 'aiChat'
   | 'unknown';
 
 export interface CommandResponse {
@@ -34,4 +35,17 @@ export interface SystemCommand {
   action: 'volume' | 'brightness' | 'wifi' | 'app';
   parameter?: string;
   value?: number;
+}
+
+export type PersonalityType = 'default' | 'formal' | 'funny' | 'tony_stark';
+
+export interface ChatMemory {
+  userName?: string;
+  recentInteractions: Array<{
+    userMessage: string;
+    aiResponse: string;
+    timestamp: Date;
+  }>;
+  preferences: Record<string, any>;
+  personality: PersonalityType;
 }

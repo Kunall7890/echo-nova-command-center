@@ -1,6 +1,5 @@
-
 import React, { useState, useRef, useEffect } from "react";
-import { Mic, MicOff, Send, Volume2, Clock, FileText } from "lucide-react";
+import { Mic, MicOff, Send, Volume2, Clock, FileText, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Card } from "@/components/ui/card";
@@ -8,8 +7,9 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/components/ui/use-toast";
 import VoiceVisualizer from "./VoiceVisualizer";
 import CommandDisplay from "./CommandDisplay";
-import { processCommand, getReminders, getNotes } from "@/utils/commandProcessor";
-import { CommandType } from "@/types/commands";
+import PersonalitySelector from "./PersonalitySelector";
+import { processCommand, getReminders, getNotes, getPersonality } from "@/utils/commandProcessor";
+import { CommandType, PersonalityType } from "@/types/commands";
 
 type Message = {
   id: string;
@@ -34,12 +34,12 @@ const VoiceAssistant = () => {
   ]);
   const [volume, setVolume] = useState(0);
   const [activeCommand, setActiveCommand] = useState<{ type: string; data: any } | null>(null);
+  const [currentPersonality, setCurrentPersonality] = useState<PersonalityType>(getPersonality());
   const recognition = useRef<SpeechRecognition | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  // Initialize speech recognition
   useEffect(() => {
     if (window.SpeechRecognition || window.webkitSpeechRecognition) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -67,7 +67,6 @@ const VoiceAssistant = () => {
           }
         }
         setTranscript(interimTranscript);
-        // Simulate voice activity with random values
         setVolume(Math.random() * 100);
       };
 
@@ -95,7 +94,6 @@ const VoiceAssistant = () => {
     };
   }, [toast]);
 
-  // Auto-scroll to the latest message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -108,7 +106,6 @@ const VoiceAssistant = () => {
     }
   };
 
-  // Detect command type from user message
   const detectCommandType = (text: string): CommandType => {
     const lowerText = text.toLowerCase();
     
@@ -125,10 +122,17 @@ const VoiceAssistant = () => {
     return 'unknown';
   };
 
+  const handlePersonalityChange = (personality: PersonalityType) => {
+    setCurrentPersonality(personality);
+    toast({
+      title: "Personality Changed",
+      description: `EchoNova now has a ${personality} personality.`,
+    });
+  };
+
   const handleUserMessage = async (text: string) => {
     if (!text.trim()) return;
 
-    // Add user message
     const commandType = detectCommandType(text);
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -143,10 +147,8 @@ const VoiceAssistant = () => {
     setProcessing(true);
 
     try {
-      // Process the command
       const response = await processCommand(text.trim());
       
-      // Get additional data for certain command types
       let data = null;
       if (commandType === 'reminder') {
         data = { reminders: getReminders() };
@@ -156,29 +158,28 @@ const VoiceAssistant = () => {
         setActiveCommand({ type: 'note', data });
       }
       
-      // Add assistant message
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: response,
+        text: response.response,
         sender: "assistant",
         timestamp: new Date(),
-        type: commandType,
-        data
+        type: response.type,
+        data: response.data || data
       };
       
       setMessages((prev) => [...prev, assistantMessage]);
       
-      // Show a toast for important commands
-      if (['reminder', 'note', 'systemCommand'].includes(commandType)) {
+      if (['reminder', 'note', 'systemCommand'].includes(response.type)) {
         toast({
-          title: commandType === 'reminder' ? 'Reminder Added' : 
-                 commandType === 'note' ? 'Note Saved' : 'System Command',
-          description: response,
+          title: response.type === 'reminder' ? 'Reminder Added' : 
+                 response.type === 'note' ? 'Note Saved' : 'System Command',
+          description: response.response,
         });
       }
       
-      // Text-to-speech (would be implemented in a production app)
-      // speakResponse(response);
+      if (response.type === 'aiChat') {
+        setCurrentPersonality(getPersonality());
+      }
     } catch (error) {
       console.error("Error processing command:", error);
       toast({
@@ -199,15 +200,14 @@ const VoiceAssistant = () => {
     }
   };
 
-  // Function to show command examples
   const showCommandExamples = () => {
     const examples = [
       "What time is it?",
       "Tell me a joke",
       "Remind me to call John tomorrow",
       "Take a note: Buy groceries after work",
-      "Open Spotify",
-      "Set volume to 50%"
+      "My name is Alex",
+      "How are you doing today?"
     ];
     
     return (
@@ -234,7 +234,6 @@ const VoiceAssistant = () => {
 
   return (
     <div className="flex flex-col space-y-4 w-full max-w-2xl mx-auto h-[80vh]">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <div className="h-3 w-3 rounded-full bg-nova-primary animate-pulse"></div>
@@ -242,14 +241,16 @@ const VoiceAssistant = () => {
             EchoNova
           </h1>
         </div>
-        <div className="text-sm text-gray-500">
-          {listening ? "Listening..." : processing ? "Processing..." : "Ready"}
+        <div className="flex items-center space-x-2">
+          <PersonalitySelector onSelect={handlePersonalityChange} />
+          <div className="text-sm text-gray-500">
+            {listening ? "Listening..." : processing ? "Processing..." : "Ready"}
+          </div>
         </div>
       </div>
       
       <Separator />
       
-      {/* Command Shortcuts */}
       <div className="flex flex-wrap gap-2">
         <Button 
           variant="outline" 
@@ -285,7 +286,6 @@ const VoiceAssistant = () => {
         </Button>
       </div>
       
-      {/* Message History */}
       <div className="flex-1 overflow-y-auto p-4 rounded-md bg-gray-50 dark:bg-gray-900">
         <div className="space-y-4">
           {messages.map((message) => (
@@ -322,7 +322,6 @@ const VoiceAssistant = () => {
         </div>
       </div>
       
-      {/* Voice Activity */}
       {listening && (
         <div className="relative p-4 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 animate-fadeIn">
           <div className="flex justify-center items-center h-20">
@@ -335,10 +334,8 @@ const VoiceAssistant = () => {
         </div>
       )}
       
-      {/* Examples */}
       {!listening && messages.length < 3 && showCommandExamples()}
       
-      {/* Input Area */}
       <div className="flex space-x-2">
         <Button
           onClick={toggleListening}

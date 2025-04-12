@@ -1,5 +1,12 @@
-
-import { CommandType, CommandResponse, Reminder, Note, SystemCommand } from "@/types/commands";
+import { CommandType, CommandResponse, Reminder, Note, SystemCommand, PersonalityType } from "@/types/commands";
+import { 
+  getChatMemory, 
+  addInteraction, 
+  setUserName, 
+  getUserName, 
+  generatePersonalityResponse, 
+  getPersonality 
+} from "@/utils/chatMemory";
 
 // Simulated data storage (would be replaced with localStorage or database in a real implementation)
 let reminders: Reminder[] = [];
@@ -8,6 +15,23 @@ let notes: Note[] = [];
 // Enhanced NLP to detect command intent
 const detectIntent = (text: string): CommandType => {
   const lowerText = text.toLowerCase();
+  
+  // Check for name setting
+  if (lowerText.includes('my name is') || lowerText.includes('call me')) {
+    return 'aiChat';
+  }
+  
+  // Check if it's a chat message rather than a command
+  if (lowerText.startsWith('what') || 
+      lowerText.startsWith('how') || 
+      lowerText.startsWith('why') || 
+      lowerText.startsWith('can you') || 
+      lowerText.startsWith('could you') || 
+      lowerText.startsWith('would you') || 
+      lowerText.includes('tell me about') || 
+      lowerText.includes('explain')) {
+    return 'aiChat';
+  }
   
   if (lowerText.includes('weather') || lowerText.includes('temperature') || lowerText.includes('forecast')) {
     return 'weather';
@@ -51,7 +75,8 @@ const detectIntent = (text: string): CommandType => {
     return 'systemCommand';
   }
   
-  return 'unknown';
+  // If it's not a specific command, treat it as AI chat
+  return 'aiChat';
 };
 
 // Parse system commands
@@ -136,8 +161,100 @@ const parseNote = (text: string): string | null => {
   return noteText || null;
 };
 
+// Handle AI chat specific logic
+const handleAIChat = (text: string): string => {
+  const lowerText = text.toLowerCase();
+  const personality = getPersonality();
+  const userName = getUserName();
+  
+  // Handle name setting
+  if (lowerText.includes('my name is') || lowerText.includes('call me')) {
+    let name = '';
+    if (lowerText.includes('my name is')) {
+      name = text.split('my name is')[1].trim();
+    } else {
+      name = text.split('call me')[1].trim();
+    }
+    
+    // Remove any punctuation at the end
+    name = name.replace(/[.,!?;:]$/, '');
+    
+    if (name) {
+      setUserName(name);
+      return `Great, I'll call you ${name} from now on!`;
+    }
+  }
+  
+  // Generic greeting with name if available
+  if (lowerText.includes('hello') || lowerText.includes('hi') || lowerText.includes('hey')) {
+    const greeting = generatePersonalityResponse(personality, 'greeting');
+    return userName ? `${greeting} ${userName}!` : greeting;
+  }
+  
+  // Handle common questions based on personality
+  if (lowerText.includes('who are you') || lowerText.includes('what are you')) {
+    switch (personality) {
+      case 'formal':
+        return "I am EchoNova, your digital assistant. I am programmed to assist you with various tasks and information requests.";
+      case 'funny':
+        return "I'm EchoNova, your virtual sidekick! Part wizard, part computer, all awesome! I'm here to make your digital life more fun!";
+      case 'tony_stark':
+        return "EchoNova. Think of me as your personal J.A.R.V.I.S. Not as advanced as what I'd build, but hey, we all start somewhere.";
+      default:
+        return "I'm EchoNova, your AI assistant. I'm here to help you with tasks, answer questions, and make your day easier.";
+    }
+  }
+  
+  if (lowerText.includes('how are you')) {
+    switch (personality) {
+      case 'formal':
+        return "I am functioning optimally. Thank you for your inquiry.";
+      case 'funny':
+        return "Living the dream in digital land! All bytes accounted for and feeling electric today!";
+      case 'tony_stark':
+        return "Better than most humans. Running at peak performance as usual.";
+      default:
+        return "I'm doing well, thanks for asking! How can I help you today?";
+    }
+  }
+  
+  // Fallback responses based on personality
+  const fallbackResponses = {
+    'default': [
+      "I'm not sure I understand. Could you rephrase that?",
+      "I don't have enough information to answer that right now.",
+      "That's an interesting question. I'll need to learn more about that.",
+      "I'm still learning, and I don't have a good answer for that yet."
+    ],
+    'formal': [
+      "I regret to inform you that I cannot provide a suitable response to your query at this time.",
+      "Your inquiry requires additional context which I do not currently possess.",
+      "The information requested is beyond my current knowledge parameters.",
+      "I am unable to process this request due to insufficient data."
+    ],
+    'funny': [
+      "Whoa, you've stumped the AI! Achievement unlocked: Confuse a Computer!",
+      "My digital brain just went 'does not compute' on that one! Try again?",
+      "If I had hands, I'd be scratching my head right now. Can you rephrase?",
+      "That question is way above my pay grade... and I work for free!"
+    ],
+    'tony_stark': [
+      "Yeah, I'm going to need you to be more specific. Even genius has its limits.",
+      "Not following you there. And trust me, I usually catch on pretty quick.",
+      "Let's circle back to something I can actually work with.",
+      "Even with my IQ, that's a bit out of left field. Try again?"
+    ]
+  };
+  
+  // Select a random fallback response for the current personality
+  const responses = fallbackResponses[personality] || fallbackResponses.default;
+  return responses[Math.floor(Math.random() * responses.length)];
+};
+
 // Generate responses based on intent
 const generateResponse = (intent: CommandType, text: string): CommandResponse => {
+  const personality = getPersonality();
+  
   switch (intent) {
     case 'weather':
       return {
@@ -146,15 +263,11 @@ const generateResponse = (intent: CommandType, text: string): CommandResponse =>
       };
     
     case 'greeting':
-      const greetings = [
-        "Hello! How can I assist you today?",
-        "Hi there! What can I do for you?",
-        "Hey! I'm here to help. What do you need?",
-        "Greetings! How may I be of service?",
-      ];
+      const greetingResponse = generatePersonalityResponse(personality, 'greeting');
+      const userName = getUserName();
       return {
         type: 'greeting',
-        response: greetings[Math.floor(Math.random() * greetings.length)]
+        response: userName ? `${greetingResponse} ${userName}!` : greetingResponse
       };
     
     case 'time':
@@ -301,24 +414,34 @@ const generateResponse = (intent: CommandType, text: string): CommandResponse =>
         response: "I understand you want to perform a system action. In a full implementation, I would be able to open applications or perform system commands."
       };
     
+    case 'aiChat':
+      const response = handleAIChat(text);
+      return {
+        type: 'aiChat',
+        response
+      };
+    
     case 'unknown':
     default:
       return {
         type: 'unknown',
-        response: "I'm not sure how to respond to that. In a full implementation, I would connect to an AI model like GPT to provide more intelligent responses."
+        response: generatePersonalityResponse(personality, 'error')
       };
   }
 };
 
 // Main function to process commands
-export const processCommand = async (text: string): Promise<string> => {
+export const processCommand = async (text: string): Promise<CommandResponse> => {
   // Add a small delay to simulate processing
   await new Promise(resolve => setTimeout(resolve, 1000));
   
   const intent = detectIntent(text);
   const responseObj = generateResponse(intent, text);
   
-  return responseObj.response;
+  // Store the interaction in memory
+  addInteraction(text, responseObj.response);
+  
+  return responseObj;
 };
 
 // Get all reminders
@@ -352,6 +475,13 @@ export const addNote = (text: string): Note => {
   };
   notes.push(newNote);
   return newNote;
+};
+
+// Export personality functions for direct access
+export { 
+  setPersonality, 
+  getPersonality,
+  getChatMemory
 };
 
 // In a real implementation, additional functions would be added for:
