@@ -1,4 +1,3 @@
-
 import { CommandType, CommandResponse, Reminder, Note, SystemCommand, PersonalityType } from "@/types/commands";
 import { 
   getChatMemory, 
@@ -405,15 +404,15 @@ const generateResponse = (intent: CommandType, text: string): CommandResponse =>
       };
     
     case 'youtube':
-      const systemCommand = parseSystemCommand(text);
-      if (systemCommand && systemCommand.action === 'youtube' && systemCommand.parameter) {
+      const youtubeCommand = parseSystemCommand(text);
+      if (youtubeCommand && youtubeCommand.action === 'youtube' && youtubeCommand.parameter) {
         return {
           type: 'youtube',
-          response: `I'll play "${systemCommand.parameter}" on YouTube for you.`,
+          response: `I'll play "${youtubeCommand.parameter}" on YouTube for you.`,
           data: { 
-            command: systemCommand,
-            searchQuery: systemCommand.parameter,
-            url: systemCommand.url
+            command: youtubeCommand,
+            searchQuery: youtubeCommand.parameter,
+            url: youtubeCommand.url
           }
         };
       }
@@ -498,41 +497,41 @@ const generateResponse = (intent: CommandType, text: string): CommandResponse =>
       };
     
     case 'systemCommand':
-      const systemCommand = parseSystemCommand(text);
-      if (systemCommand) {
-        if (systemCommand.action === 'volume') {
-          if (systemCommand.value !== undefined) {
-            if (systemCommand.value === 0) {
+      const sysCommand = parseSystemCommand(text);
+      if (sysCommand) {
+        if (sysCommand.action === 'volume') {
+          if (sysCommand.value !== undefined) {
+            if (sysCommand.value === 0) {
               return {
                 type: 'systemCommand',
                 response: "I've muted the volume.",
-                data: { command: systemCommand }
+                data: { command: sysCommand }
               };
-            } else if (systemCommand.value > 0 && systemCommand.value <= 100) {
+            } else if (sysCommand.value > 0 && sysCommand.value <= 100) {
               return {
                 type: 'systemCommand',
-                response: `I've set the volume to ${systemCommand.value}%.`,
-                data: { command: systemCommand }
+                response: `I've set the volume to ${sysCommand.value}%.`,
+                data: { command: sysCommand }
               };
-            } else if (systemCommand.value > 0) {
+            } else if (sysCommand.value > 0) {
               return {
                 type: 'systemCommand',
                 response: "I've increased the volume.",
-                data: { command: systemCommand }
+                data: { command: sysCommand }
               };
             } else {
               return {
                 type: 'systemCommand',
                 response: "I've decreased the volume.",
-                data: { command: systemCommand }
+                data: { command: sysCommand }
               };
             }
           }
-        } else if (systemCommand.action === 'app' && systemCommand.parameter) {
+        } else if (sysCommand.action === 'app' && sysCommand.parameter) {
           return {
             type: 'systemCommand',
-            response: `I'll open ${systemCommand.parameter} for you.`,
-            data: { command: systemCommand }
+            response: `I'll open ${sysCommand.parameter} for you.`,
+            data: { command: sysCommand }
           };
         }
       }
