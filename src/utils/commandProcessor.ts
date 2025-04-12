@@ -5,7 +5,8 @@ import {
   setUserName, 
   getUserName, 
   generatePersonalityResponse, 
-  getPersonality 
+  getPersonality,
+  setPersonality as setPersonalityFn
 } from "@/utils/chatMemory";
 
 // Simulated data storage (would be replaced with localStorage or database in a real implementation)
@@ -479,8 +480,8 @@ export const addNote = (text: string): Note => {
 
 // Export personality functions for direct access
 export { 
-  setPersonality, 
   getPersonality,
+  setPersonalityFn as setPersonality,
   getChatMemory
 };
 
