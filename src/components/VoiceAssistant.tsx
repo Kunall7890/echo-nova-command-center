@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Mic, MicOff, Send, Volume2, Clock, FileText, Settings } from "lucide-react";
+import { Mic, MicOff, Send, Volume2, Clock, FileText, Settings, Youtube, CloudSun, AppWindow } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Card } from "@/components/ui/card";
@@ -109,6 +109,7 @@ const VoiceAssistant = () => {
   const detectCommandType = (text: string): CommandType => {
     const lowerText = text.toLowerCase();
     
+    if (lowerText.includes('youtube') || lowerText.includes('play')) return 'youtube';
     if (lowerText.includes('weather')) return 'weather';
     if (lowerText.includes('hello') || lowerText.includes('hi')) return 'greeting';
     if (lowerText.includes('time') || lowerText.includes('date')) return 'time';
@@ -200,10 +201,17 @@ const VoiceAssistant = () => {
     }
   };
 
+  const openYouTubeUrl = (url: string) => {
+    window.open(url, '_blank');
+  };
+
   const showCommandExamples = () => {
     const examples = [
       "What time is it?",
       "Tell me a joke",
+      "What's the weather like today?",
+      "Open Spotify",
+      "Play a song on YouTube",
       "Remind me to call John tomorrow",
       "Take a note: Buy groceries after work",
       "My name is Alex",
@@ -227,6 +235,50 @@ const VoiceAssistant = () => {
 
   const renderMessageExtra = (message: Message) => {
     if (message.sender === "assistant" && message.data && message.type) {
+      if (message.type === 'youtube' && message.data.url) {
+        return (
+          <div className="mt-2 ml-2">
+            <Button 
+              size="sm" 
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => openYouTubeUrl(message.data.url)}
+            >
+              <Youtube className="h-4 w-4 mr-1" /> Open YouTube
+            </Button>
+          </div>
+        );
+      }
+      
+      if (message.type === 'weather' && message.data.weather) {
+        const { weather, location } = message.data;
+        return (
+          <Card className="mt-2 ml-2 p-3 max-w-xs bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-900 dark:to-blue-800 border-none">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">{location === 'current' ? 'Current Location' : location}</p>
+                <p className="text-2xl font-bold">{weather.temp}°C</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">{weather.condition}</p>
+              </div>
+              <div className="bg-blue-400 dark:bg-blue-600 rounded-full p-2">
+                <CloudSun className="h-8 w-8 text-white" />
+              </div>
+            </div>
+            <div className="mt-2 text-sm">
+              <p>Humidity: {weather.humidity}%</p>
+            </div>
+          </Card>
+        );
+      }
+      
+      if (message.type === 'systemCommand' && message.data.command && message.data.command.action === 'app') {
+        return (
+          <div className="mt-2 ml-2 flex items-center text-sm text-gray-600">
+            <AppWindow className="h-4 w-4 mr-1" /> 
+            <span>App: {message.data.command.parameter}</span>
+          </div>
+        );
+      }
+      
       return <CommandDisplay type={message.type} data={message.data} />;
     }
     return null;
@@ -272,17 +324,25 @@ const VoiceAssistant = () => {
           variant="outline" 
           size="sm"
           className="text-xs border-nova-light"
-          onClick={() => handleUserMessage("What are my reminders?")}
+          onClick={() => handleUserMessage("What's the weather like today?")}
         >
-          <Clock className="h-3 w-3 mr-1" /> Reminders
+          <CloudSun className="h-3 w-3 mr-1" /> Weather
         </Button>
         <Button 
           variant="outline" 
           size="sm"
           className="text-xs border-nova-light"
-          onClick={() => handleUserMessage("Show my notes")}
+          onClick={() => handleUserMessage("Open Spotify")}
         >
-          <FileText className="h-3 w-3 mr-1" /> Notes
+          <AppWindow className="h-3 w-3 mr-1" /> Apps
+        </Button>
+        <Button 
+          variant="outline" 
+          size="sm"
+          className="text-xs border-nova-light"
+          onClick={() => handleUserMessage("Play a song on YouTube")}
+        >
+          <Youtube className="h-3 w-3 mr-1" /> YouTube
         </Button>
       </div>
       

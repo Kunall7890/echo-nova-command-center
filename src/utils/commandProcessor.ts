@@ -1,3 +1,4 @@
+
 import { CommandType, CommandResponse, Reminder, Note, SystemCommand, PersonalityType } from "@/types/commands";
 import { 
   getChatMemory, 
@@ -13,6 +14,23 @@ import {
 let reminders: Reminder[] = [];
 let notes: Note[] = [];
 
+// Weather data storage (would connect to a real API in production)
+const weatherData = {
+  cities: {
+    "new york": { temp: 18, condition: "Partly Cloudy", humidity: 65 },
+    "london": { temp: 14, condition: "Rainy", humidity: 80 },
+    "tokyo": { temp: 26, condition: "Sunny", humidity: 50 },
+    "paris": { temp: 17, condition: "Cloudy", humidity: 70 },
+    "sydney": { temp: 23, condition: "Clear", humidity: 55 },
+    "berlin": { temp: 15, condition: "Drizzle", humidity: 75 },
+    "moscow": { temp: 5, condition: "Snowy", humidity: 85 },
+    "dubai": { temp: 35, condition: "Hot", humidity: 40 },
+    "mumbai": { temp: 32, condition: "Humid", humidity: 90 },
+    "rio": { temp: 29, condition: "Sunny", humidity: 60 }
+  },
+  current: { temp: 22, condition: "Clear", humidity: 60 }
+};
+
 // Enhanced NLP to detect command intent
 const detectIntent = (text: string): CommandType => {
   const lowerText = text.toLowerCase();
@@ -20,6 +38,14 @@ const detectIntent = (text: string): CommandType => {
   // Check for name setting
   if (lowerText.includes('my name is') || lowerText.includes('call me')) {
     return 'aiChat';
+  }
+  
+  // Check for YouTube commands
+  if (lowerText.includes('youtube') || 
+      lowerText.includes('play video') || 
+      lowerText.includes('play song') || 
+      lowerText.includes('watch video')) {
+    return 'youtube';
   }
   
   // Check if it's a chat message rather than a command
@@ -101,6 +127,33 @@ const parseSystemCommand = (text: string): SystemCommand | null => {
     }
   }
   
+  // YouTube command
+  if (lowerText.includes('youtube') || lowerText.includes('play video') || lowerText.includes('watch video')) {
+    // Extract what to play
+    let searchQuery = "";
+    
+    if (lowerText.includes('play')) {
+      const playMatches = lowerText.match(/play\s+(?:video\s+|song\s+|music\s+|)(?:of\s+|about\s+|on\s+|)(.+?)(?:\s+on youtube|\s*$)/i);
+      if (playMatches && playMatches[1]) {
+        searchQuery = playMatches[1].trim();
+      }
+    } else {
+      const watchMatches = lowerText.match(/(?:youtube|watch|open)\s+(.+?)(?:\s+video|\s+song|\s+music|\s*$)/i);
+      if (watchMatches && watchMatches[1]) {
+        searchQuery = watchMatches[1].trim();
+      }
+    }
+    
+    if (searchQuery) {
+      const youtubeUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`;
+      return { 
+        action: 'youtube', 
+        parameter: searchQuery,
+        url: youtubeUrl
+      };
+    }
+  }
+  
   // App control (simplified)
   if (lowerText.includes('open') || lowerText.includes('launch') || lowerText.includes('start')) {
     const appMatches = [
@@ -109,7 +162,13 @@ const parseSystemCommand = (text: string): SystemCommand | null => {
       { keywords: ['mail', 'email', 'outlook', 'gmail'], app: 'email' },
       { keywords: ['calendar'], app: 'calendar' },
       { keywords: ['calculator'], app: 'calculator' },
-      { keywords: ['notepad', 'notes'], app: 'notepad' }
+      { keywords: ['notepad', 'notes'], app: 'notepad' },
+      { keywords: ['maps', 'directions'], app: 'maps' },
+      { keywords: ['weather'], app: 'weather' },
+      { keywords: ['clock', 'alarm'], app: 'clock' },
+      { keywords: ['camera'], app: 'camera' },
+      { keywords: ['photos', 'gallery'], app: 'photos' },
+      { keywords: ['settings'], app: 'settings' }
     ];
     
     for (const appMatch of appMatches) {
@@ -117,6 +176,45 @@ const parseSystemCommand = (text: string): SystemCommand | null => {
         return { action: 'app', parameter: appMatch.app };
       }
     }
+    
+    // Generic app opening - try to extract app name
+    const openMatches = lowerText.match(/open\s+(.+?)(?:\s+app|\s*$)/i);
+    if (openMatches && openMatches[1]) {
+      const appName = openMatches[1].trim();
+      return { action: 'app', parameter: appName };
+    }
+  }
+  
+  return null;
+};
+
+// Parse weather command
+const parseWeatherCommand = (text: string): string | null => {
+  const lowerText = text.toLowerCase();
+  
+  // Check for specific city
+  const cityMatches = [
+    { keywords: ['new york', 'nyc'], city: 'new york' },
+    { keywords: ['london'], city: 'london' },
+    { keywords: ['tokyo'], city: 'tokyo' },
+    { keywords: ['paris'], city: 'paris' },
+    { keywords: ['sydney'], city: 'sydney' },
+    { keywords: ['berlin'], city: 'berlin' },
+    { keywords: ['moscow'], city: 'moscow' },
+    { keywords: ['dubai'], city: 'dubai' },
+    { keywords: ['mumbai'], city: 'mumbai' },
+    { keywords: ['rio', 'rio de janeiro'], city: 'rio' }
+  ];
+  
+  for (const cityMatch of cityMatches) {
+    if (cityMatch.keywords.some(keyword => lowerText.includes(keyword))) {
+      return cityMatch.city;
+    }
+  }
+  
+  // Check for general weather query
+  if (lowerText.includes('weather') || lowerText.includes('temperature') || lowerText.includes('forecast')) {
+    return 'current';
   }
   
   return null;
@@ -258,10 +356,21 @@ const generateResponse = (intent: CommandType, text: string): CommandResponse =>
   
   switch (intent) {
     case 'weather':
-      return {
-        type: 'weather',
-        response: "I'm sorry, I don't have access to weather data yet. In a full implementation, I would connect to a weather API to provide current conditions and forecasts."
-      };
+      const location = parseWeatherCommand(text) || 'current';
+      const weatherInfo = location === 'current' ? weatherData.current : weatherData.cities[location];
+      
+      if (weatherInfo) {
+        return {
+          type: 'weather',
+          response: `The weather ${location !== 'current' ? `in ${location}` : ''} is currently ${weatherInfo.condition} with a temperature of ${weatherInfo.temp}°C and ${weatherInfo.humidity}% humidity.`,
+          data: { location, weather: weatherInfo }
+        };
+      } else {
+        return {
+          type: 'weather',
+          response: "I'm sorry, I don't have weather data for that location. In a full implementation, I would connect to a weather API to provide accurate forecasts."
+        };
+      }
     
     case 'greeting':
       const greetingResponse = generatePersonalityResponse(personality, 'greeting');
@@ -293,6 +402,24 @@ const generateResponse = (intent: CommandType, text: string): CommandResponse =>
       return {
         type: 'joke',
         response: jokes[Math.floor(Math.random() * jokes.length)]
+      };
+    
+    case 'youtube':
+      const systemCommand = parseSystemCommand(text);
+      if (systemCommand && systemCommand.action === 'youtube' && systemCommand.parameter) {
+        return {
+          type: 'youtube',
+          response: `I'll play "${systemCommand.parameter}" on YouTube for you.`,
+          data: { 
+            command: systemCommand,
+            searchQuery: systemCommand.parameter,
+            url: systemCommand.url
+          }
+        };
+      }
+      return {
+        type: 'youtube',
+        response: "I couldn't understand what you want to play on YouTube. Please try again with a specific song or video name."
       };
     
     case 'news':
@@ -404,7 +531,7 @@ const generateResponse = (intent: CommandType, text: string): CommandResponse =>
         } else if (systemCommand.action === 'app' && systemCommand.parameter) {
           return {
             type: 'systemCommand',
-            response: `I would open ${systemCommand.parameter} in a full implementation.`,
+            response: `I'll open ${systemCommand.parameter} for you.`,
             data: { command: systemCommand }
           };
         }

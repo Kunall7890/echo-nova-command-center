@@ -9,6 +9,7 @@ export type CommandType =
   | 'note'
   | 'search'
   | 'systemCommand'
+  | 'youtube'
   | 'aiChat'
   | 'unknown';
 
@@ -32,9 +33,10 @@ export interface Note {
 }
 
 export interface SystemCommand {
-  action: 'volume' | 'brightness' | 'wifi' | 'app';
+  action: 'volume' | 'brightness' | 'wifi' | 'app' | 'youtube';
   parameter?: string;
   value?: number;
+  url?: string;
 }
 
 export type PersonalityType = 'default' | 'formal' | 'funny' | 'tony_stark';

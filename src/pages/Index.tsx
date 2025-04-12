@@ -2,7 +2,7 @@
 import React from "react";
 import VoiceAssistant from "@/components/VoiceAssistant";
 import { Card, CardContent } from "@/components/ui/card";
-import { Command, Clock, FileText, VolumeX, Volume2, Cloud } from "lucide-react";
+import { Command, Clock, FileText, Volume2, Cloud, Youtube, AppWindow } from "lucide-react";
 
 const Index = () => {
   return (
@@ -51,12 +51,17 @@ const Index = () => {
           <FeatureCard 
             icon={<Cloud className="h-5 w-5 text-nova-primary" />}
             title="Weather"
-            description="Check weather forecasts (requires API integration)."
+            description="Check weather conditions for various locations."
           />
           <FeatureCard 
-            icon={<VolumeX className="h-5 w-5 text-nova-primary" />}
-            title="Voice Commands"
-            description="Just say 'Hello' to get started."
+            icon={<Youtube className="h-5 w-5 text-nova-primary" />}
+            title="YouTube"
+            description="Play videos and music from YouTube with voice commands."
+          />
+          <FeatureCard 
+            icon={<AppWindow className="h-5 w-5 text-nova-primary" />}
+            title="App Control"
+            description="Open and control apps with your voice."
           />
         </div>
       </main>
